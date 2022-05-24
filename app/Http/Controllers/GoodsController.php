@@ -15,12 +15,36 @@ class GoodsController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index(Request $request)
     {
+
+        if(isset($request->orderBy)) {
+            if($request->orderBy == 'name-low-high') {
+                $goods = DB::table('goods')->orderBy('name')->get();
+            }
+            if($request->orderBy == 'name-high-low') {
+                $goods = DB::table('goods')->orderBy('name', 'desc')->get();
+            }
+            if($request->orderBy == 'id-low-high') {
+                $goods = DB::table('goods')->orderBy('id')->get();
+            }
+            if($request->orderBy == 'id-high-low') {
+                $goods = DB::table('goods')->orderBy('id', 'desc')->get();
+            }
+        }
+
+        if($request->ajax()) {
+            return view('ajax.goods', [
+                'goods' => $goods
+            ])->render();
+        }
+
         $goods = Good::all();
+        $manufactures = Manufacture::all();
 
         return view('goods.goods', [
-            'goods' => $goods
+            'goods' => $goods,
+            'manufactures' => $manufactures
         ]);
     }
 
@@ -46,20 +70,26 @@ class GoodsController extends Controller
      */
     public function store(Request $request)
     {
-        $good = Good::create([
-            'name' => $request->name
-        ]);
-
-        $insertedId = $good->id;
-
-        foreach ($request->manufactures as $key => $value) {
-            GoodManufacture::create([
-                'good_id' => $insertedId,
-                'manufacture_id' => $value
+        if($request->ajax()) {
+            $good = Good::create([
+                'name' => $request->name
             ]);
-        }
 
-        return redirect()->route('goods.index');
+            $insertedId = $good->id;
+
+            foreach ($request->manufactures as $key => $value) {
+                GoodManufacture::create([
+                    'good_id' => $insertedId,
+                    'manufacture_id' => $value
+                ]);
+            }
+
+            $goods = Good::all();
+
+            return view('ajax.goods', [
+                'goods' => $goods
+            ])->render();
+        }
     }
 
     /**

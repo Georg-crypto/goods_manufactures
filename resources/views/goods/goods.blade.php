@@ -7,7 +7,25 @@
 
         <h2>Товары</h2>
 
-        <a type="button" class="btn btn-primary col-4" href="{{ route('goods.create') }}">Добавить товар</a>
+        <div class="d-flex justify-content-between">
+
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal" style="width: 30%;">
+                Добавить товар
+            </button>
+
+            <div class="dropdown">
+                <button class="btn btn-warning dropdown-toggle" type="button" id="dropdownMenuButton1" data-bs-toggle="dropdown" aria-expanded="false">
+                    Сортировать таблицу
+                </button>
+                <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
+                    <li class="dropdown-item goods_sorting" data-order="name-low-high" style="cursor: pointer;">Сортировать по имени (А-Я, A-Z)</li>
+                    <li class="dropdown-item goods_sorting" data-order="name-high-low" style="cursor: pointer;">Сортировать по имени (Я-А, Z-A)</li>
+                    <li class="dropdown-item goods_sorting" data-order="id-low-high" style="cursor: pointer;">Сортировать по ID (по возрастанию)</li>
+                    <li class="dropdown-item goods_sorting" data-order="id-high-low" style="cursor: pointer;">Сортировать по ID (по убыванию)</li>
+                </ul>
+            </div>
+
+        </div>
 
         <table class="table table-striped">
             <thead>
@@ -17,7 +35,7 @@
                 <th scope="col">Действия</th>
             </tr>
             </thead>
-            <tbody>
+            <tbody class="goods">
             @foreach($goods as $product)
             <tr>
                 <th scope="row">{{ $product->id }}</th>
@@ -36,7 +54,48 @@
 
         </table>
 
-@endsection('content')
+    @include('modals.addGoodModal')
+
+@endsection
+
+@section('custom_js')
+    <script>
+        $(document).ready(function() {
+            $(".goods_sorting").click(function () {
+                let orderBy = $(this).data('order')
+                $.ajax({
+                    url: "{{ route('goods.index') }}",
+                    type: "GET",
+                    data: {
+                        orderBy: orderBy
+                    },
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    },
+                    success: (data) => {
+                        $('.goods').html(data)
+                    }
+                });
+            })
+
+            $("#addForm").submit(function (e) {
+                e.preventDefault();
+                let form = $(this).serialize();
+                $.ajax({
+                    url: '{{ route('goods.store') }}',
+                    type: "POST",
+                    data: form,
+                    success: (data) => {
+                        $('#addModal').modal('hide');
+                        $('#addForm')[0].reset();
+                        $('.goods').html(data)
+                    }
+                });
+                return false;
+            })
+        })
+    </script>
+@endsection
 
 
 

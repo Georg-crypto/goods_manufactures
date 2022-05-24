@@ -33,4 +33,4 @@
         </button>
     </form>
 
-@endsection('content')
+@endsection
