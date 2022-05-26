@@ -12,6 +12,15 @@
         @if (isset($manufacture))
             @method('PUT')
         @endif
+        @if ($errors->any())
+            <div class="alert alert-danger">
+                <ul>
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
         <label class="form-label">Наименование производителя</label>
         <div class="mb-3">
             <input type="text" class="form-control" name="name" value="{{ isset($manufacture) ? $manufacture->name : '' }}">

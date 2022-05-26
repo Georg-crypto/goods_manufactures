@@ -15,6 +15,15 @@
                     @if (isset($good))
                         @method('PUT')
                     @endif
+                    @if ($errors->any())
+                        <div class="alert alert-danger">
+                            <ul>
+                                @foreach($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
                     <label class="form-label">Наименование товара</label>
                     <div class="mb-3">
                         <input type="text" class="form-control" name="name" value="{{ isset($good) ? $good->name : '' }}">
@@ -31,7 +40,6 @@
                                 value="{{ $manufacture->id }}">{{ $manufacture->name }}</option>
                         @endforeach
                     </select>
-
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
                         <button type="submit" class="btn btn-primary" style="width: 40%;">

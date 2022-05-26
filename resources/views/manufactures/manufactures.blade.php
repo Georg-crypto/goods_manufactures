@@ -7,6 +7,12 @@
 
         <h2>Производители</h2>
 
+        @if(session('error'))
+            <div class="alert alert-danger">
+                {{ session('error') }}
+            </div>
+        @endif
+
         <div class="d-flex justify-content-between">
 {{--            <a type="button" class="btn btn-primary col-4" href="{{ route('manufactures.create') }}">Добавить производителя</a>--}}
 
@@ -91,6 +97,10 @@
                         $('#addModal').modal('hide');
                         $('#addForm')[0].reset();
                         $('.manufactures').html(data)
+                    },
+                    error: function(data) {
+                        // will display json of validation errors, which you'd loop through and display
+                        console.log(data);
                     }
                 });
                 return false;

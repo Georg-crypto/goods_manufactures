@@ -7,6 +7,12 @@
 
         <h2>Товары</h2>
 
+        @if(session('error'))
+            <div class="alert alert-danger">
+                {{ session('error') }}
+            </div>
+        @endif
+
         <div class="d-flex justify-content-between">
 
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal" style="width: 30%;">
@@ -89,6 +95,10 @@
                         $('#addModal').modal('hide');
                         $('#addForm')[0].reset();
                         $('.goods').html(data)
+                    },
+                    error: function(data) {
+                        // will display json of validation errors, which you'd loop through and display
+                        console.log(data);
                     }
                 });
                 return false;

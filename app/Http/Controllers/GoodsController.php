@@ -2,35 +2,34 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\EditGoodsFormRequest;
 use App\Models\Good;
 use App\Models\GoodManufacture;
 use App\Models\Manufacture;
+use App\Services\GoodsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Session;
+use Illuminate\View\View;
 
 class GoodsController extends Controller
 {
+
+    public function __construct(GoodsService $goodsService)
+    {
+        $this->service = $goodsService;
+    }
+
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\Http\Response
+     * @return string
      */
-    public function index(Request $request)
+    public function index(Request $request): string
     {
 
         if(isset($request->orderBy)) {
-            if($request->orderBy == 'name-low-high') {
-                $goods = DB::table('goods')->orderBy('name')->get();
-            }
-            if($request->orderBy == 'name-high-low') {
-                $goods = DB::table('goods')->orderBy('name', 'desc')->get();
-            }
-            if($request->orderBy == 'id-low-high') {
-                $goods = DB::table('goods')->orderBy('id')->get();
-            }
-            if($request->orderBy == 'id-high-low') {
-                $goods = DB::table('goods')->orderBy('id', 'desc')->get();
-            }
+            $goods = $this->service->orderBy($request);
         }
 
         if($request->ajax()) {
@@ -39,8 +38,8 @@ class GoodsController extends Controller
             ])->render();
         }
 
-        $goods = Good::all();
-        $manufactures = Manufacture::all();
+        $goods = $this->service->goodsAll();
+        $manufactures = $this->service->manufacturesAll();
 
         return view('goods.goods', [
             'goods' => $goods,
@@ -51,11 +50,11 @@ class GoodsController extends Controller
     /**
      * Show the form for creating a new resource.
      *
-     * @return \Illuminate\Http\Response
+     * @return string
      */
-    public function create()
+    public function create(): string
     {
-        $manufactures = Manufacture::all();
+        $manufactures = $this->service->manufacturesAll();
 
         return view('goods.goods_form', [
             'manufactures' => $manufactures
@@ -66,29 +65,35 @@ class GoodsController extends Controller
      * Store a newly created resource in storage.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
+     * @return string
      */
-    public function store(Request $request)
+    public function store(Request $request): string
     {
         if($request->ajax()) {
-            $good = Good::create([
-                'name' => $request->name
-            ]);
 
-            $insertedId = $good->id;
+                $checkGoodNames = $this->service->checkGoodNames();
 
-            foreach ($request->manufactures as $key => $value) {
-                GoodManufacture::create([
-                    'good_id' => $insertedId,
-                    'manufacture_id' => $value
-                ]);
-            }
+                foreach ($checkGoodNames as $goodName) {
+                    if($goodName->name == $request->name) {
+                        return view('ajax.goods', [
+                            'goods' => $checkGoodNames
+                        ])->render();
+                    }
+                }
 
-            $goods = Good::all();
+                $good = $this->service->goodCreate($request);
 
-            return view('ajax.goods', [
-                'goods' => $goods
-            ])->render();
+                $insertedId = $good->id;
+
+                foreach ($request->manufactures as $key => $value) {
+                    $this->service->goodManufactureCreate($insertedId, $value);
+                }
+
+                $goods = $this->service->goodsAll();
+
+                return view('ajax.goods', [
+                    'goods' => $goods
+                ])->render();
         }
     }
 
@@ -107,19 +112,16 @@ class GoodsController extends Controller
      * Show the form for editing the specified resource.
      *
      * @param  Good $good
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
      */
-    public function edit(Good $good)
+    public function edit(Good $good): \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
     {
+
         $id = $good->id;
 
-        $selectedManufactures = DB::table('manufactures')
-            ->select('manufactures.id', 'manufactures.name')
-            ->leftJoin('good_manufacture', 'manufactures.id', '=', 'good_manufacture.manufacture_id')
-            ->where('good_manufacture.good_id', '=', $id)
-            ->get();
+        $selectedManufactures = $this->service->selectedManufactures($id);
 
-        $manufactures = Manufacture::all();
+        $manufactures = $this->service->manufacturesAll();
 
         return view('goods.goods_form', [
             'good' => $good,
@@ -134,23 +136,32 @@ class GoodsController extends Controller
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  Good $good
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Http\RedirectResponse
      */
-    public function update(Request $request, Good $good)
+    public function update(EditGoodsFormRequest $request, Good $good): \Illuminate\Http\RedirectResponse
     {
+        $validated = $request->validated();
+
+        if($validated['name'] === $good->name) {
+            return redirect()->route('goods.index')->with('error', 'Название товара не изменено');
+        }
+
+        $goodNames = $this->service->goodNames();
+
+        foreach ($goodNames as $goodName) {
+            if($goodName->name == $validated['name']) {
+                return redirect()->route('goods.index')->with('error', 'Такой товар уже существует');
+            }
+        }
+
         $id = $good->id;
 
-        DB::table('goods')
-            ->where('id', $id)
-            ->update(['name' => $request->name]);
+        $this->service->goodsUpdate($id, $validated);
 
-        DB::table('good_manufacture')->where('good_id', '=', $id)->delete();
+        $this->service->deleteGoodManufacture($id);
 
-        foreach ($request->manufactures as $key => $value) {
-            GoodManufacture::create([
-                'good_id' => $id,
-                'manufacture_id' => $value
-            ]);
+        foreach ($validated['manufactures'] as $key => $value) {
+            $this->service->createGoodManufacture($id, $value);
         }
 
         return redirect()->route('goods.index');
@@ -160,9 +171,9 @@ class GoodsController extends Controller
      * Remove the specified resource from storage.
      *
      * @param  Good $good
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Http\RedirectResponse
      */
-    public function destroy(Good $good)
+    public function destroy(Good $good): \Illuminate\Http\RedirectResponse
     {
         $good->delete();
 

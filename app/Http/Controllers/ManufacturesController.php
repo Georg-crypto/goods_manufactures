@@ -2,34 +2,30 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\EditManufacturesFormRequest;
 use App\Models\Good;
 use App\Models\GoodManufacture;
 use App\Models\Manufacture;
+use App\Services\ManufacturesService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ManufacturesController extends Controller
 {
+    public function __construct(ManufacturesService $manufacturesService)
+    {
+        $this->service = $manufacturesService;
+    }
+
     /**
      * Display a listing of the resource.
      *
-     * @return \Illuminate\Http\Response
+     * @return string
      */
-    public function index(Request $request)
+    public function index(Request $request): string
     {
         if(isset($request->orderBy)) {
-            if($request->orderBy == 'name-low-high') {
-                $manufactures = DB::table('manufactures')->orderBy('name')->get();
-            }
-            if($request->orderBy == 'name-high-low') {
-                $manufactures = DB::table('manufactures')->orderBy('name', 'desc')->get();
-            }
-            if($request->orderBy == 'id-low-high') {
-                $manufactures = DB::table('manufactures')->orderBy('id')->get();
-            }
-            if($request->orderBy == 'id-high-low') {
-                $manufactures = DB::table('manufactures')->orderBy('id', 'desc')->get();
-            }
+            $manufactures = $this->service->orderBy($request);
         }
 
         if($request->ajax()) {
@@ -38,8 +34,8 @@ class ManufacturesController extends Controller
             ])->render();
         }
 
-        $manufactures = Manufacture::all();
-        $goods = Good::all();
+        $manufactures = $this->service->manufacturesAll();
+        $goods = $this->service->goodsAll();
 
         return view('manufactures.manufactures', [
             'manufactures' => $manufactures,
@@ -50,11 +46,11 @@ class ManufacturesController extends Controller
     /**
      * Show the form for creating a new resource.
      *
-     * @return \Illuminate\Http\Response
+     * @return string
      */
-    public function create()
+    public function create(): string
     {
-        $goods = Good::all();
+        $goods = $this->service->goodsAll();
 
         return view('manufactures.manufactures_form', [
             'goods' => $goods
@@ -65,25 +61,31 @@ class ManufacturesController extends Controller
      * Store a newly created resource in storage.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
+     * @return string
      */
-    public function store(Request $request)
+    public function store(Request $request): string
     {
         if($request->ajax()) {
-            $manufacture = Manufacture::create([
-                'name' => $request->name
-            ]);
+
+            $checkManufactureNames = $this->service->checkManufactureNames();
+
+            foreach ($checkManufactureNames as $manufactureName) {
+                if($manufactureName->name == $request->name) {
+                    return view('ajax.manufactures', [
+                        'manufactures' => $checkManufactureNames
+                    ])->render();
+                }
+            }
+
+            $manufacture = $this->service->manufactureCreate($request);
 
             $insertedId = $manufacture->id;
 
             foreach ($request->goods as $key => $value) {
-                GoodManufacture::create([
-                    'good_id' => $value,
-                    'manufacture_id' => $insertedId
-                ]);
+                $this->service->goodManufactureCreate($value, $insertedId);
             }
 
-            $manufactures = Manufacture::all();
+            $manufactures = $this->service->manufacturesAll();
 
             return view('ajax.manufactures', [
                 'manufactures' => $manufactures
@@ -106,20 +108,16 @@ class ManufacturesController extends Controller
      * Show the form for editing the specified resource.
      *
      * @param  Manufacture $manufacture
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
      */
-    public function edit(Manufacture $manufacture)
+    public function edit(Manufacture $manufacture): \Illuminate\Contracts\Foundation\Application|\Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
     {
 
         $id = $manufacture->id;
 
-        $selectedGoods = DB::table('goods')
-            ->select('goods.id', 'goods.name')
-            ->leftJoin('good_manufacture', 'goods.id', '=', 'good_manufacture.good_id')
-            ->where('good_manufacture.manufacture_id', '=', $id)
-            ->get();
+        $selectedGoods = $this->service->selectedGoods($id);
 
-        $goods = Good::all();
+        $goods = $this->service->goodsAll();
 
         return view('manufactures.manufactures_form', [
             'goods' => $goods,
@@ -133,23 +131,32 @@ class ManufacturesController extends Controller
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  Manufacture $manufacture
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Http\RedirectResponse
      */
-    public function update(Request $request, Manufacture $manufacture)
+    public function update(EditManufacturesFormRequest $request, Manufacture $manufacture): \Illuminate\Http\RedirectResponse
     {
+        $validated = $request->validated();
+
+        if($validated['name'] === $manufacture->name) {
+            return redirect()->route('manufactures.index')->with('error', 'Название фабрики не изменено');
+        }
+
+        $manufactureNames = $this->service->manufactureNames();
+
+        foreach ($manufactureNames as $manufactureName) {
+            if($manufactureName->name == $validated['name']) {
+                return redirect()->route('manufactures.index')->with('error', 'Такая фабрика уже существует');
+            }
+        }
+
         $id = $manufacture->id;
 
-        DB::table('manufactures')
-            ->where('id', $id)
-            ->update(['name' => $request->name]);
+        $this->service->manufacturesUpdate($id, $validated);
 
-        DB::table('good_manufacture')->where('manufacture_id', '=', $id)->delete();
+        $this->service->deleteGoodManufacture($id);
 
-        foreach ($request->goods as $key => $value) {
-            GoodManufacture::create([
-                'good_id' => $value,
-                'manufacture_id' => $id
-            ]);
+        foreach ($validated['goods'] as $key => $value) {
+            $this->service->createGoodManufacture($id, $value);
         }
 
         return redirect()->route('manufactures.index');
@@ -159,9 +166,9 @@ class ManufacturesController extends Controller
      * Remove the specified resource from storage.
      *
      * @param  Manufacture $manufacture
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Http\RedirectResponse
      */
-    public function destroy(Manufacture $manufacture)
+    public function destroy(Manufacture $manufacture): \Illuminate\Http\RedirectResponse
     {
         $manufacture->delete();
 
