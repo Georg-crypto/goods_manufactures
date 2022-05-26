@@ -42,15 +42,10 @@ class GoodsService
         return Manufacture::all();
     }
 
-    public function checkGoodNames(): \Illuminate\Support\Collection
-    {
-        return DB::table('goods')->get();
-    }
-
-    public function goodCreate($request)
+    public function goodCreate($validator)
     {
         return Good::create([
-            'name' => $request->name
+            'name' => $validator['name']
         ]);
     }
 

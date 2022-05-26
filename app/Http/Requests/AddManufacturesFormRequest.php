@@ -4,7 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class EditGoodsFormRequest extends FormRequest
+class AddManufacturesFormRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -24,8 +24,8 @@ class EditGoodsFormRequest extends FormRequest
     public function rules()
     {
         return [
-            'name' => 'required|string|min:3|max:100',
-            'manufactures' => 'array'
+            'name' => 'required|string|unique:manufactures|min:3|max:100',
+            'goods' => 'array'
         ];
     }
 }

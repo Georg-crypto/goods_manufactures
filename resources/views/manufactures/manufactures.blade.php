@@ -13,8 +13,10 @@
             </div>
         @endif
 
+        <div class="alert alert-danger ajax_valid_errors" style="display: none">
+        </div>
+
         <div class="d-flex justify-content-between">
-{{--            <a type="button" class="btn btn-primary col-4" href="{{ route('manufactures.create') }}">Добавить производителя</a>--}}
 
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal" style="width: 30%;">
                 Добавить производителя
@@ -99,8 +101,14 @@
                         $('.manufactures').html(data)
                     },
                     error: function(data) {
-                        // will display json of validation errors, which you'd loop through and display
-                        console.log(data);
+
+                        $('#addModal').modal('hide');
+                        $('#addForm')[0].reset();
+
+                        let outputErrData = data['responseJSON']['errors']['name'][0];
+
+                        $('.ajax_valid_errors').css('display', 'block');
+                        $('.ajax_valid_errors').html(outputErrData)
                     }
                 });
                 return false;

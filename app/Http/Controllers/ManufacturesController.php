@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AddManufacturesFormRequest;
 use App\Http\Requests\EditManufacturesFormRequest;
 use App\Models\Good;
 use App\Models\GoodManufacture;
@@ -63,25 +64,17 @@ class ManufacturesController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return string
      */
-    public function store(Request $request): string
+    public function store(AddManufacturesFormRequest $request): string
     {
         if($request->ajax()) {
 
-            $checkManufactureNames = $this->service->checkManufactureNames();
+            $validator = $request->validated();
 
-            foreach ($checkManufactureNames as $manufactureName) {
-                if($manufactureName->name == $request->name) {
-                    return view('ajax.manufactures', [
-                        'manufactures' => $checkManufactureNames
-                    ])->render();
-                }
-            }
-
-            $manufacture = $this->service->manufactureCreate($request);
+            $manufacture = $this->service->manufactureCreate($validator);
 
             $insertedId = $manufacture->id;
 
-            foreach ($request->goods as $key => $value) {
+            foreach ($validator['goods'] as $key => $value) {
                 $this->service->goodManufactureCreate($value, $insertedId);
             }
 

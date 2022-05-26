@@ -40,15 +40,10 @@ class ManufacturesService
         return Good::all();
     }
 
-    public function checkManufactureNames(): \Illuminate\Support\Collection
-    {
-        return DB::table('manufactures')->get();
-    }
-
-    public function manufactureCreate($request)
+    public function manufactureCreate($validator)
     {
         return Manufacture::create([
-            'name' => $request->name
+            'name' => $validator['name']
         ]);
     }
 
